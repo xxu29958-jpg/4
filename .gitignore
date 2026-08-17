@@ -1,0 +1,19 @@
+# 引擎与构建
+godot/
+game/.godot/
+game/NVIDIA Corporation/
+export_presets.cfg.bak
+
+# 大文件/二进制
+*.apk
+*.apk.idsig
+ref-三国大时代4/
+tools-mcp/
+assets_ai/
+测试截图/
+
+# 环境与会话
+.venv/
+.kimi-code/
+__pycache__/
+*.pyc

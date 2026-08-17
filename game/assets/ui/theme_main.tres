@@ -1,0 +1,24 @@
+[gd_resource type="Theme" load_steps=3 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/NotoSansCJKsc-Regular.otf" id="1_reg"]
+
+[sub_resource type="StyleBoxFlat" id="panel_main"]
+bg_color = Color(0.102, 0.0824, 0.0706, 0.902)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.788, 0.635, 0.153, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 16.0
+content_margin_top = 12.0
+content_margin_right = 16.0
+content_margin_bottom = 12.0
+
+[resource]
+default_font = ExtResource("1_reg")
+default_font_size = 22
+Panel/styles/panel = SubResource("panel_main")

@@ -1,0 +1,42 @@
+{
+ "walk1": {
+  "file": "villager_walk1.png",
+  "w": 136,
+  "h": 192
+ },
+ "walk2": {
+  "file": "villager_walk2.png",
+  "w": 136,
+  "h": 192
+ },
+ "walk3": {
+  "file": "villager_walk3.png",
+  "w": 136,
+  "h": 192
+ },
+ "walk4": {
+  "file": "villager_walk4.png",
+  "w": 136,
+  "h": 192
+ },
+ "windup": {
+  "file": "villager_windup.png",
+  "w": 136,
+  "h": 192
+ },
+ "slash": {
+  "file": "villager_slash.png",
+  "w": 136,
+  "h": 192
+ },
+ "hurt": {
+  "file": "villager_hurt.png",
+  "w": 136,
+  "h": 192
+ },
+ "idle": {
+  "file": "villager_idle.png",
+  "w": 136,
+  "h": 192
+ }
+}

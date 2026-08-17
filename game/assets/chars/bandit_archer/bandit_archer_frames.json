@@ -1,0 +1,42 @@
+{
+ "walk1": {
+  "file": "bandit_archer_walk1.png",
+  "w": 180,
+  "h": 192
+ },
+ "walk2": {
+  "file": "bandit_archer_walk2.png",
+  "w": 180,
+  "h": 192
+ },
+ "walk3": {
+  "file": "bandit_archer_walk3.png",
+  "w": 180,
+  "h": 192
+ },
+ "walk4": {
+  "file": "bandit_archer_walk4.png",
+  "w": 180,
+  "h": 192
+ },
+ "windup": {
+  "file": "bandit_archer_windup.png",
+  "w": 180,
+  "h": 192
+ },
+ "slash": {
+  "file": "bandit_archer_slash.png",
+  "w": 180,
+  "h": 192
+ },
+ "hurt": {
+  "file": "bandit_archer_hurt.png",
+  "w": 180,
+  "h": 192
+ },
+ "idle": {
+  "file": "bandit_archer_idle.png",
+  "w": 180,
+  "h": 192
+ }
+}

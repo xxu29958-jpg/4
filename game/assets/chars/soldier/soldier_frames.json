@@ -1,0 +1,42 @@
+{
+ "walk1": {
+  "file": "soldier_walk1.png",
+  "w": 175,
+  "h": 192
+ },
+ "walk2": {
+  "file": "soldier_walk2.png",
+  "w": 175,
+  "h": 192
+ },
+ "walk3": {
+  "file": "soldier_walk3.png",
+  "w": 175,
+  "h": 192
+ },
+ "walk4": {
+  "file": "soldier_walk4.png",
+  "w": 175,
+  "h": 192
+ },
+ "windup": {
+  "file": "soldier_windup.png",
+  "w": 175,
+  "h": 192
+ },
+ "slash": {
+  "file": "soldier_slash.png",
+  "w": 175,
+  "h": 192
+ },
+ "hurt": {
+  "file": "soldier_hurt.png",
+  "w": 175,
+  "h": 192
+ },
+ "idle": {
+  "file": "soldier_idle.png",
+  "w": 175,
+  "h": 192
+ }
+}

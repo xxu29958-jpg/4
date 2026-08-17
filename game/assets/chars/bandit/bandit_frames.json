@@ -1,0 +1,42 @@
+{
+ "walk1": {
+  "file": "bandit_walk1.png",
+  "w": 182,
+  "h": 192
+ },
+ "walk2": {
+  "file": "bandit_walk2.png",
+  "w": 182,
+  "h": 192
+ },
+ "walk3": {
+  "file": "bandit_walk3.png",
+  "w": 182,
+  "h": 192
+ },
+ "walk4": {
+  "file": "bandit_walk4.png",
+  "w": 182,
+  "h": 192
+ },
+ "windup": {
+  "file": "bandit_windup.png",
+  "w": 182,
+  "h": 192
+ },
+ "slash": {
+  "file": "bandit_slash.png",
+  "w": 182,
+  "h": 192
+ },
+ "hurt": {
+  "file": "bandit_hurt.png",
+  "w": 182,
+  "h": 192
+ },
+ "idle": {
+  "file": "bandit_idle.png",
+  "w": 182,
+  "h": 192
+ }
+}

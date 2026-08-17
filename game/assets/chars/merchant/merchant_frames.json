@@ -1,0 +1,42 @@
+{
+ "walk1": {
+  "file": "merchant_walk1.png",
+  "w": 132,
+  "h": 192
+ },
+ "walk2": {
+  "file": "merchant_walk2.png",
+  "w": 132,
+  "h": 192
+ },
+ "walk3": {
+  "file": "merchant_walk3.png",
+  "w": 132,
+  "h": 192
+ },
+ "walk4": {
+  "file": "merchant_walk4.png",
+  "w": 132,
+  "h": 192
+ },
+ "windup": {
+  "file": "merchant_windup.png",
+  "w": 132,
+  "h": 192
+ },
+ "slash": {
+  "file": "merchant_slash.png",
+  "w": 132,
+  "h": 192
+ },
+ "hurt": {
+  "file": "merchant_hurt.png",
+  "w": 132,
+  "h": 192
+ },
+ "idle": {
+  "file": "merchant_idle.png",
+  "w": 132,
+  "h": 192
+ }
+}

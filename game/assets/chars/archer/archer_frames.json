@@ -1,0 +1,42 @@
+{
+ "walk1": {
+  "file": "archer_walk1.png",
+  "w": 165,
+  "h": 192
+ },
+ "walk2": {
+  "file": "archer_walk2.png",
+  "w": 165,
+  "h": 192
+ },
+ "walk3": {
+  "file": "archer_walk3.png",
+  "w": 165,
+  "h": 192
+ },
+ "walk4": {
+  "file": "archer_walk4.png",
+  "w": 165,
+  "h": 192
+ },
+ "windup": {
+  "file": "archer_windup.png",
+  "w": 165,
+  "h": 192
+ },
+ "slash": {
+  "file": "archer_slash.png",
+  "w": 165,
+  "h": 192
+ },
+ "hurt": {
+  "file": "archer_hurt.png",
+  "w": 165,
+  "h": 192
+ },
+ "idle": {
+  "file": "archer_idle.png",
+  "w": 165,
+  "h": 192
+ }
+}
