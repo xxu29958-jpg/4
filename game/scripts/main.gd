@@ -33,6 +33,7 @@ var _result_card: ResultCard
 var _fade_rect: ColorRect
 var _challenged: BanditGroup  # 本次开战的山贼组；null = 开场会战
 var _bandits_cleared := false
+var _reward_money := 0
 var _zhai_cleared := false
 var _fresh_start := false  # 无存档：标题关闭后播开场会战
 var _last_saved_pos := Vector2.ZERO
@@ -61,6 +62,7 @@ func _ready() -> void:
 	add_child(BannerToast.new())
 	_result_card = ResultCard.new()
 	add_child(_result_card)
+	_update_objective()
 	# 兵败渐暗层（战败复活专用）。
 	var fade_layer := CanvasLayer.new()
 	fade_layer.layer = 24
@@ -88,6 +90,16 @@ func _on_title_started() -> void:
 			"听说了吗？东边官道上一伙贼人拦路劫道，张家的商队叫他们扣下了。",
 			"壮士若有几分本事，何不去看看？——出了东门，顺着官道走就是。",
 		])
+
+
+## 目标行：不指路的软目标提示（反箭头纪律，只一句话）。
+func _update_objective() -> void:
+	if _bandits_cleared and _zhai_cleared:
+		_hud.set_objective("颍川暂安 · 自由闯荡")
+	elif _bandits_cleared:
+		_hud.set_objective("官道已通 · 传闻：北山贼寨仍在")
+	else:
+		_hud.set_objective("传闻：东边官道出事了")
 
 
 ## 屏震：相机短促抖动（横扫命中 / 主将受击）。
@@ -164,6 +176,7 @@ func _process(_delta: float) -> void:
 		return
 	if _player.global_position.distance_to(_last_saved_pos) > 8.0:
 		_save.mark_dirty(_canonical_snapshot())
+		_last_saved_pos = _player.global_position  # 真防抖：标记后归零距离
 
 
 # ---------------------------------------------------------------- 战斗编排
@@ -261,10 +274,18 @@ func _on_battle_ended(player_won: bool) -> void:
 		else:
 			_zhai_cleared = true
 		_encounters.clear_bandits(_challenged)
+	# P0：战败/脱战——山贼留在世界，警戒圈重新武装，可再战。
+	if not player_won and _challenged != null:
+		_challenged.rearm()
 	_challenged = null
 	if is_instance_valid(_battle):
 		_battle.queue_free()
 	_battle = null
+	# 战败：canonical 先落定（抬回阳翟）再弹卡——卡片只是投影。
+	# 评审：玩家在结算卡期间杀进程，下次必须已在阳翟，而不是战场上。
+	if not player_won:
+		_player.global_position = _encounters.point("player_spawn")
+		_last_saved_pos = _player.global_position
 	_save.mark_dirty(_canonical_snapshot())
 	_save.flush(SaveSystem.SLOT_AUTO)
 	_result_card.show_result(player_won, allies_left, enemies_slain)
@@ -278,16 +299,15 @@ func _on_defeat_dismissed() -> void:
 	var tw := create_tween()
 	tw.tween_property(_fade_rect, "modulate:a", 1.0, 0.5)
 	tw.tween_callback(func() -> void:
-		_player.global_position = _encounters.point("player_spawn")
-		_last_saved_pos = _player.global_position
-		_save.mark_dirty(_canonical_snapshot())
-		_save.flush(SaveSystem.SLOT_AUTO))
+		pass)  # 位置与存档已在 battle_ended 落定，这里只负责渐暗渐亮
 	tw.tween_property(_fade_rect, "modulate:a", 0.0, 0.5)
 
 
 ## 拾取长柄旧刀：行为变化当场可感（横扫范围扩大），并入档。
 func _on_old_blade_picked() -> void:
 	_player.equip_old_blade()
+	_player.money += 25
+	_player.add_xp(10)
 	_save.mark_dirty(_canonical_snapshot())
 	_save.flush(SaveSystem.SLOT_AUTO)
 
@@ -301,6 +321,10 @@ func _canonical_snapshot() -> Dictionary:
 		"has_old_blade": _player.has_old_blade,
 		"bandits_cleared": _bandits_cleared,
 		"zhai_cleared": _zhai_cleared,
+		"level": _player.level,
+		"xp": _player.xp,
+		"money": _player.money,
+		"bonus_melee": _player.bonus_melee,
 	}
 
 
@@ -316,6 +340,14 @@ func _restore_latest_save() -> void:
 	if pos.size() == 2:
 		_player.global_position = Vector2(pos[0], pos[1])
 		_last_saved_pos = _player.global_position
+	_player.level = int(data.get("level", 1))
+	_player.xp = int(data.get("xp", 0))
+	_player.money = int(data.get("money", 30))
+	_player.bonus_melee = int(data.get("bonus_melee", 0))
+	_player.max_hp = Player.MAX_HP + 12 * (_player.level - 1)
+	_player.attack_damage = Player.ATTACK_DAMAGE + 2 * (_player.level - 1)
+	_player.hp = _player.max_hp
+	_update_objective()
 	if data.get("has_old_blade", false):
 		_player.equip_old_blade()
 		_encounters.remove_sparkle()

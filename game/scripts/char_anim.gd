@@ -13,7 +13,7 @@ signal attack_peak
 signal attack_done
 
 const FRAME_H := 192.0
-const WALK_FPS := 9.0
+var _walk_fps := 9.0  # 步频跟移速走（speed_fps），杜绝脚底滑冰
 
 @export var frames_dir := "res://assets/chars/hero"
 @export var display_height := 64.0
@@ -22,6 +22,11 @@ const WALK_FPS := 9.0
 		flip_h = v
 		if _sprite != null:
 			_sprite.flip_h = v
+
+## 调用方喂移速：步频 = 速度 × 系数（64px 角色步幅约 7px/帧步）。
+func set_stride(speed: float) -> void:
+	_walk_fps = clampf(speed * 0.105, 7.5, 14.0)
+
 
 var moving := false:
 	set(v):
@@ -57,7 +62,13 @@ func _ready() -> void:
 	_set_frame("idle")
 
 
+static var _cache := {}  # frames_dir → {name: Texture2D}（开战 30 人共享一次 I/O）
+
+
 func _load_frames() -> void:
+	if _cache.has(frames_dir):
+		_frames = _cache[frames_dir]
+		return
 	var meta := frames_dir + "/" + frames_dir.get_file() + "_frames.json"
 	var raw := FileAccess.get_file_as_string(meta)
 	var data: Dictionary = {} if raw.is_empty() else JSON.parse_string(raw)
@@ -68,6 +79,7 @@ func _load_frames() -> void:
 		data = JSON.parse_string(FileAccess.get_file_as_string(meta))
 	for name in data:
 		_frames[name] = load(frames_dir + "/" + data[name]["file"])
+	_cache[frames_dir] = _frames
 
 
 func _set_frame(name: String) -> void:
@@ -79,10 +91,13 @@ func _process(delta: float) -> void:
 	match _state:
 		"walk":
 			_t += delta
-			if _t >= 1.0 / WALK_FPS:
+			if _t >= 1.0 / _walk_fps:
 				_t = 0.0
 				_walk_idx = (_walk_idx + 1) % WALK_ORDER.size()
 				_set_frame(WALK_ORDER[_walk_idx])
+			# 步伐起伏：触地-腾空的两拍节奏，走路有"蹬地感"。
+			_sprite.position.y = -display_height / 2.0 \
+					- absf(sin(_t * _walk_fps * PI)) * 1.6
 		"emote":
 			_t += delta
 			if _t >= 1.0 / _emote_fps and not _emote_frames.is_empty():

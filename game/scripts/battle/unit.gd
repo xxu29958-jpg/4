@@ -116,6 +116,8 @@ func _physics_process(delta: float) -> void:
 		facing = battle.advance_dir[team]
 
 	# 友军分离 + 击退惯性。
+	# 步频喂给动画：走多快踏多快，杜绝滑冰。
+	_anim.set_stride(_speed() if _anim.moving else 0.0)
 	move += battle.separation(self) * _speed() * 0.9
 	if move.length() > _speed():
 		move = move.normalized() * _speed()
@@ -179,7 +181,7 @@ func _attack() -> void:
 		if bool(stats.get("ranged", false)) \
 				and global_position.distance_to(target.global_position) > float(stats.get("range", 46.0)):
 			# 放箭：抛射物飞行中目标死了箭也照飞（打空是真实的）。
-			battle.spawn_arrow(global_position, target, dmg, team)
+			battle.spawn_arrow(global_position, target, dmg, team, self)
 			Sfx.play(Sfx.SWING)
 			return
 		var reach: float = stats.get("range", 46.0) + 12.0
@@ -187,7 +189,7 @@ func _attack() -> void:
 			return  # 目标已脱离，挥空
 		var knock := 130.0 if charge_left > 0.0 else 55.0
 		Sfx.play(Sfx.SWING)
-		target.take_damage(dmg, from, knock)
+		target.take_damage(dmg, from, knock, false, self)
 		# 冲锋首撞：额外击退 + 小范围尘土，"撞开人墙"的手感。
 		if charge_left > 0.0 and not charge_hit_done:
 			charge_hit_done = true
@@ -201,13 +203,15 @@ func _attack() -> void:
 
 ## 受击：护甲减免 → 侧背击加成 → 扣血/击退/表现。
 ## 侧背击只在"正与别人交手/未察觉"时成立——正面对砍方向随敌转，不算侧背。
-func take_damage(amount: int, from_pos: Vector2, knock: float, is_skill := false) -> void:
+func take_damage(amount: int, from_pos: Vector2, knock: float, is_skill := false,
+		attacker: Node2D = null) -> void:
 	if not alive:
 		return
 	var dmg := maxi(1, amount - int(stats.get("armor", 0)))
 	var to_attacker := (from_pos - global_position).normalized()
 	var frontal := facing.dot(to_attacker) > 0.5
-	var attacker: BattleUnit = battle.unit_at(from_pos)
+	# 攻击者由调用方直传（评审：坐标反查在密集战线会认错人）
+	var attacker_unit: BattleUnit = attacker as BattleUnit
 	var distracted := _target != null and attacker != null and attacker != _target
 	if hold_order and frontal:
 		dmg = maxi(1, int(dmg * 0.65))
@@ -218,8 +222,8 @@ func take_damage(amount: int, from_pos: Vector2, knock: float, is_skill := false
 		battle.notify_flanked(team)
 	# 结矛墙迎击：冲锋者撞上稳守枪兵，先吃一反。
 	if hold_order and bool(stats.get("brace", false)) and frontal:
-		if attacker != null and attacker.charge_left > 0.0:
-			attacker.take_damage(int(stats.get("damage", 6)) + 4, global_position, 90.0)
+		if attacker_unit != null and attacker_unit.charge_left > 0.0:
+			attacker_unit.take_damage(int(stats.get("damage", 6)) + 4, global_position, 90.0, false, self)
 	hp -= dmg
 	_knock += (global_position - from_pos).normalized() * knock \
 			/ maxf(1.0, float(stats.get("mass", 1.0)))

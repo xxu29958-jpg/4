@@ -50,11 +50,12 @@ func _ready() -> void:
 
 
 ## 战果数据由 main.gd 在 battle_ended 时统计传入。
-func show_result(player_won: bool, allies_left: int, enemies_slain: int) -> void:
+func show_result(player_won: bool, allies_left: int, enemies_slain: int,
+		reward := 0) -> void:
 	if player_won:
 		_title.text = "大破贼众"
 		_title.add_theme_color_override("font_color", Color(0.94, 0.80, 0.42))
-		_lines.text = "存活乡勇 %d\n歼敌 %d" % [allies_left, enemies_slain]
+		_lines.text = "存活乡勇 %d\n歼敌 %d\n赏钱 %d" % [allies_left, enemies_slain, reward]
 	else:
 		_title.text = "兵败"
 		_title.add_theme_color_override("font_color", Color(0.80, 0.42, 0.34))

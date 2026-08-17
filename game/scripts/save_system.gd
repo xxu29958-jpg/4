@@ -10,7 +10,7 @@ extends Node
 ##   - on_pause 仅补充。
 ## 槽位：auto（防抖+战后）/ pre_battle（战前快照）。
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 3  # v3 加等级/钱/招募；旧档一律弃
 const DEBOUNCE_SEC := 4.0
 
 const SLOT_AUTO := "user://saves/auto.save"
@@ -39,11 +39,13 @@ func _process(delta: float) -> void:
 func flush(slot := SLOT_AUTO) -> bool:
 	if not _dirty or _pending.is_empty():
 		return false
-	_dirty = false
-	_debounce_left = DEBOUNCE_SEC
 	var data := _pending.duplicate()
 	data["schema_version"] = SCHEMA_VERSION
-	return _atomic_write(slot, data)
+	if _atomic_write(slot, data):
+		_dirty = false          # 落盘成功才清 dirty（评审：写失败不得丢 pending）
+		_debounce_left = DEBOUNCE_SEC
+		return true
+	return false
 
 
 ## 原子写：临时文件 → 读回校验 → 替换正式档。
@@ -66,19 +68,29 @@ func _atomic_write(slot: String, data: Dictionary) -> bool:
 	return DirAccess.rename_absolute(tmp, slot) == OK
 
 
-## 读档：优先 auto，其次战前快照（战斗中进程被杀则回到战前，§7.2）。
+## 读档：取两槽中**较新**的一份——战前快照在开战瞬间写入，若进程死于
+## 战斗中，pre_battle 比 auto 新，自然回到战前（§7.2）；平时 auto 最新。
 func load_latest() -> Dictionary:
+	var best: Dictionary = {}
+	var best_time := -1.0
 	for slot in [SLOT_AUTO, SLOT_PRE_BATTLE]:
 		var data := _read_slot(slot)
-		if not data.is_empty():
-			return data
-	return {}
+		if data.is_empty():
+			continue
+		var mt := float(FileAccess.get_modified_time(slot))
+		if mt > best_time:
+			best_time = mt
+			best = data
+	return best
 
 
 func _read_slot(slot: String) -> Dictionary:
 	if not FileAccess.file_exists(slot):
 		return {}
 	var f := FileAccess.open(slot, FileAccess.READ)
+	if f == null:
+		push_error("存档读取失败：" + slot)
+		return {}
 	var parsed: Variant = JSON.parse_string(f.get_as_text())
 	f.close()
 	if parsed is Dictionary and parsed.get("schema_version", 0) == SCHEMA_VERSION:

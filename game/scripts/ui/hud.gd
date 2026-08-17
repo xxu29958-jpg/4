@@ -21,6 +21,8 @@ var _blink_t := 0.0
 
 var _canvas: HudCanvas
 var _hp_label: Label
+var _stat_label: Label
+var _obj_label: Label
 var _ally_label: Label
 var _enemy_label: Label
 
@@ -44,6 +46,11 @@ func _ready() -> void:
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_canvas)
 	_hp_label = _make_label("主将", 20, 16, 12)
+	_stat_label = _make_label("", 16, 16, 58)
+	_obj_label = _make_label("", 17, 320, 12)
+	_obj_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_obj_label.size.x = 640
+	_obj_label.add_theme_color_override("font_color", Color(0.86, 0.74, 0.45))
 	_ally_label = _make_label("", 18, 254, 34)
 	_enemy_label = _make_label("", 18, 906, 34)
 	_enemy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -63,6 +70,11 @@ func _make_label(text: String, font_size: int, x: float, y: float) -> Label:
 	l.position = Vector2(x, y)
 	_canvas.add_child(l)
 	return l
+
+
+## 目标行（软提示，不指路）。
+func set_objective(text: String) -> void:
+	_obj_label.text = text
 
 
 ## 战斗开始：接管士气显示。
@@ -93,6 +105,9 @@ func _process(delta: float) -> void:
 	if _battle != null and is_instance_valid(_battle):
 		_ally_label.text = "乡勇 %d" % _battle.alive_count(0)
 		_enemy_label.text = "贼 %d" % _battle.alive_count(1)
+	if _player != null and is_instance_valid(_player):
+		_stat_label.text = "Lv %d · 钱 %d · 乡勇+%d" % [
+				_player.level, _player.money, _player.bonus_melee]
 	_canvas.queue_redraw()
 
 

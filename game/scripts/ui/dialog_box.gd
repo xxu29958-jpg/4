@@ -5,6 +5,7 @@ extends CanvasLayer
 ## 非模态：打开时不暂停移动；玩家走远（>AUTO_CLOSE_RADIUS）自动关闭。
 
 signal closed
+signal choice_made(idx: int)
 
 const THEME := preload("res://assets/ui/theme_main.tres")
 const FONT_BOLD := preload("res://assets/fonts/NotoSansCJKsc-Bold.otf")
@@ -19,6 +20,8 @@ var _idx := 0
 var _anchor: Node2D
 var _player: Node2D
 var _typing := false
+var _choices: Array[String] = []
+var _choice_box: HBoxContainer
 
 var _panel: Panel
 var _name_label: Label
@@ -33,9 +36,9 @@ func _ready() -> void:
 	_panel = Panel.new()
 	_panel.theme = THEME
 	_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_panel.custom_minimum_size = Vector2(760, 132)
-	_panel.size = Vector2(760, 132)
-	_panel.position = Vector2(-380, -160)
+	_panel.custom_minimum_size = Vector2(640, 116)
+	_panel.size = Vector2(640, 116)
+	_panel.position = Vector2(-320, -148)
 	add_child(_panel)
 	_name_label = Label.new()
 	_name_label.add_theme_font_override("font", FONT_BOLD)
@@ -47,7 +50,7 @@ func _ready() -> void:
 	_text_label.add_theme_font_size_override("font_size", 22)
 	_text_label.add_theme_color_override("font_color", Color(0.94, 0.90, 0.82))
 	_text_label.position = Vector2(18, 42)
-	_text_label.size = Vector2(724, 72)
+	_text_label.size = Vector2(604, 60)
 	_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_panel.add_child(_text_label)
 	_hint_label = Label.new()
@@ -57,15 +60,24 @@ func _ready() -> void:
 	_hint_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_hint_label.position = Vector2(-32, -30)
 	_panel.add_child(_hint_label)
+	# 选项按钮行（默认隐藏；show_lines 带 choices 时末条后显示）。
+	_choice_box = HBoxContainer.new()
+	_choice_box.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_choice_box.position = Vector2(-300, -44)
+	_choice_box.visible = false
+	_panel.add_child(_choice_box)
 
 
 ## 播放一组台词。anchor 为说话者（走远自动关闭用），可空。
-func show_lines(speaker: String, lines: Array[String], anchor: Node2D = null) -> void:
+## choices 非空时：末条播完后出选项按钮，选择后发 choice_made 并关闭。
+func show_lines(speaker: String, lines: Array[String], anchor: Node2D = null,
+		choices: Array[String] = []) -> void:
 	if lines.is_empty():
 		return
 	_lines = lines
 	_idx = 0
 	_anchor = anchor
+	_choices = choices
 	_player = get_tree().get_first_node_in_group("player")
 	_name_label.text = speaker
 	visible = true
@@ -73,16 +85,8 @@ func show_lines(speaker: String, lines: Array[String], anchor: Node2D = null) ->
 	_show_line()
 
 
-func close() -> void:
-	if not is_showing:
-		return
-	visible = false
-	is_showing = false
-	_typing = false
-	_anchor = null
-	closed.emit()
-
-
+func _ready_close_unused() -> void:
+	pass
 func _show_line() -> void:
 	_text_label.text = _lines[_idx]
 	_text_label.visible_characters = 0
@@ -126,6 +130,39 @@ func advance() -> void:
 		return
 	_idx += 1
 	if _idx >= _lines.size():
-		close()
+		if _choices.is_empty():
+			close()
+		else:
+			_show_choices()  # 末条播完出选项，不直接关
 	else:
 		_show_line()
+
+
+## 选项按钮：点选发 choice_made 并关闭对话框。
+func _show_choices() -> void:
+	_choice_box.visible = true
+	_hint_label.visible = false
+	for i in _choices.size():
+		var b := Button.new()
+		b.text = _choices[i]
+		b.add_theme_font_size_override("font_size", 18)
+		var idx := i
+		b.pressed.connect(func() -> void:
+			choice_made.emit(idx)
+			close())
+		_choice_box.add_child(b)
+
+
+func close() -> void:
+	if not is_showing:
+		return
+	visible = false
+	is_showing = false
+	_typing = false
+	_anchor = null
+	_choices = []
+	for c in _choice_box.get_children():
+		c.queue_free()
+	_choice_box.visible = false
+	_hint_label.visible = true
+	closed.emit()

@@ -20,14 +20,14 @@ const TEAM_BANDIT := 1
 
 const MORALE_START := 100.0
 const MORALE_ROUT := 30.0
-const DEATH_HIT := 1.0
+const DEATH_HIT := 0.85
 const LEADER_DEATH_HIT := 30.0
 const FLANK_HIT := 0.3        # 每次侧背击的士气打击
 const BREACH_DRAIN := 0.5     # 每个突入阵后的敌人每秒士气流失
 const BREACH_DEPTH := 40.0    # 越过本方战线质心多少算"突入阵后"
 const BREACH_DRAIN_CAP := 3.0
-const DISENGAGE_RANGE := 300.0  # 周围无敌才算脱战（风筝是合法战术）
-const DISENGAGE_TIME := 1.2
+const DISENGAGE_RANGE := 320.0  # 周围无敌才算脱战（风筝是合法战术）
+const DISENGAGE_TIME := 2.2
 const CHARGE_DURATION := 4.0
 const CHARGE_COOLDOWN := 10.0
 const CELL := 44.0            # 空间哈希格
@@ -78,6 +78,9 @@ var _disengage := 0.0
 var _wave_schedule: Array[float] = []  # 各波入场时刻（战斗秒）
 var _battle_time := 0.0
 var _quiet := {TEAM_PLAYER: 0.0, TEAM_BANDIT: 0.0}  # 各队无士气损伤的秒数
+var _now := 0.0  # 战斗内计时（军令统一结束时刻用）
+var _order_gen := {TEAM_PLAYER: 0, TEAM_BANDIT: 0}  # 军令代际（防延迟协程复活旧令）
+var _charge_end := {TEAM_PLAYER: 0.0, TEAM_BANDIT: 0.0}
 # 小队节拍：近战齐刺 / 弓手齐射。人脑对同步动作极敏感——十箭齐飞才是军队。
 var _beat_melee := 0.0
 var _beat_volley := 0.0
@@ -97,6 +100,25 @@ func beat_ready(ranged: bool) -> bool:
 ## 接敌单位数（主程序镜头呼吸用）。
 func engaged_count() -> int:
 	return _engaged_count
+
+
+## 稳守枪林：结阵时前排枪尖周期性齐亮——"这是一堵矛墙"的视觉语言。
+var _glint_cd := 0.0
+
+
+func _tick_spear_glint(delta: float) -> void:
+	if order[TEAM_PLAYER] != "hold":
+		return
+	_glint_cd -= delta
+	if _glint_cd > 0.0:
+		return
+	_glint_cd = 0.7
+	for u in _alive_units(TEAM_PLAYER):
+		if u.fleeing or not bool(u.stats.get("brace", false)):
+			continue
+		if randf() < 0.55:
+			Combatant.spawn_spark(self, u.global_position
+					+ u.facing * 40.0 + Vector2(0, -u.stats.get("display_height", 64.0) * 0.6), 0.5)
 
 
 ## 冲锋冲击波：0.4s 内撞够 4 人 = 一次聚合震屏 + 低频重音。
@@ -150,6 +172,11 @@ func notify_player_breach(pos: Vector2) -> void:
 ## 结算只读：本方当前存活单位数（UI/战果统计用）。
 func alive_count(team_id: int) -> int:
 	return _alive_units(team_id).size()
+
+
+## 活单位每物理帧缓存一次（评审：热路径 filter 分配 churn）。
+var _alive_cache := {}
+var _alive_frame := -1
 
 
 ## 结算只读：本方累计出战单位数（含寨帅；歼敌 = total - alive）。
@@ -225,6 +252,7 @@ func _add_unit(stats: Dictionary, team_id: int, pos: Vector2) -> BattleUnit:
 func _physics_process(delta: float) -> void:
 	if not active or _over:
 		return
+	_now += delta
 	for team_id in _charge_cd:
 		_charge_cd[team_id] = maxf(0.0, _charge_cd[team_id] - delta)
 	if Engine.get_physics_frames() % 3 == 0:
@@ -240,6 +268,7 @@ func _physics_process(delta: float) -> void:
 	_tick_arrows(delta)
 	_tick_impact(delta)
 	_tick_stuck(delta)
+	_tick_spear_glint(delta)
 	_beat_melee += delta
 	_beat_volley += delta
 	if _beat_melee >= BEAT_MELEE:
@@ -318,28 +347,34 @@ func charge_team(team_id: int) -> void:
 		return
 	_charge_cd[team_id] = CHARGE_COOLDOWN
 	order[team_id] = "charge"
-	# 指令传播：按离主将/阵前的距离次第接到号令，冲锋像浪滚过阵线。
+	_order_gen[team_id] += 1
+	var gen: int = _order_gen[team_id]
+	_charge_end[team_id] = _now + CHARGE_DURATION  # 统一结束时刻：
+	# 晚接到号令的单位不白赚时长（评审：尾部单位冲锋曾拖到 ~6s）
 	var units := _alive_units(team_id)
 	units.sort_custom(func(a, b): return a.slot.x < b.slot.x 			if team_id == TEAM_PLAYER else a.slot.x > b.slot.x)
 	var i := 0
 	for u in units:
 		if not u.fleeing:
-			_charge_delayed(u, i * 0.07)
+			_charge_delayed(u, i * 0.07, gen)
 			i += 1
 	Sfx.play(Sfx.RALLY)
 	order_changed.emit(team_id, "charge")
 	await get_tree().create_timer(CHARGE_DURATION).timeout
-	if not _over and order[team_id] == "charge":
+	if not _over and order[team_id] == "charge" and _order_gen[team_id] == gen:
 		order[team_id] = "none"
 		order_changed.emit(team_id, "none")
 
 
-func _charge_delayed(u: BattleUnit, delay: float) -> void:
+func _charge_delayed(u: BattleUnit, delay: float, gen: int) -> void:
 	if delay > 0.0:
 		await get_tree().create_timer(delay).timeout
-	if _over or not is_instance_valid(u) or not u.alive or u.fleeing:
+	# 代际校验：玩家中途改令（稳守/再冲锋）时，旧令的延迟协程不得复活。
+	if _over or _order_gen[u.team] != gen or order[u.team] != "charge":
 		return
-	u.charge_left = CHARGE_DURATION
+	if not is_instance_valid(u) or not u.alive or u.fleeing:
+		return
+	u.charge_left = maxf(0.0, _charge_end[u.team] - _now)
 	u.hold_order = false
 	Combatant.spawn_dust(self, u.global_position + Vector2(0, 6), 2)
 
@@ -349,6 +384,7 @@ func hold_team(team_id: int) -> void:
 	if not active or _over:
 		return
 	order[team_id] = "hold"
+	_order_gen[team_id] += 1  # 作废旧冲锋的未醒协程
 	for u in _alive_units(team_id):
 		if not u.fleeing:
 			u.hold_order = true
@@ -378,6 +414,8 @@ func notify_player_down() -> void:
 func _on_unit_died(who: BattleUnit) -> void:
 	if _over:
 		return
+	if who.team == TEAM_BANDIT and _player != null:
+		_player.add_xp(2)  # 歼敌战功
 	var hit := LEADER_DEATH_HIT if who.is_leader else DEATH_HIT
 	_quiet[who.team] = 0.0
 	# 恐慌蔓延：3 秒内连死 3 人以上，每次追加 +50% 打击——雪崩是这么来的。
@@ -458,7 +496,7 @@ func nearest_enemy(unit: Node2D, max_dist: float) -> Node2D:
 	var enemy_team := TEAM_BANDIT if unit.team == TEAM_PLAYER else TEAM_PLAYER
 	var origin: Vector2 = unit.global_position
 	var best: Node2D = null
-	var best_score := max_dist
+	var best_score := INF  # 距离合法性只看 d<=max_dist；score 只用于排序（评审）
 	for other in _units[enemy_team]:
 		if not is_instance_valid(other) or not other.alive:
 			continue
@@ -527,7 +565,8 @@ func _make_arrow_tex() -> ImageTexture:
 
 
 ## 弓手放箭：直线抛射，命中最近敌（14px），目标先死箭也照飞。
-func spawn_arrow(from: Vector2, target: Node2D, dmg: int, team: int) -> void:
+func spawn_arrow(from: Vector2, target: Node2D, dmg: int, team: int,
+		shooter: Node2D = null) -> void:
 	var spr: Sprite2D
 	if _arrow_pool.is_empty():
 		spr = Sprite2D.new()
@@ -544,7 +583,7 @@ func spawn_arrow(from: Vector2, target: Node2D, dmg: int, team: int) -> void:
 	spr.rotation = dir.angle()
 	spr.position = from + Vector2(0, -26)
 	_arrows.append({"pos": spr.position, "vel": dir * ARROW_SPEED,
-			"dmg": dmg, "team": team, "node": spr, "life": 1.8})
+			"dmg": dmg, "team": team, "node": spr, "life": 1.8, "shooter": shooter})
 
 
 func _tick_arrows(delta: float) -> void:
@@ -558,7 +597,7 @@ func _tick_arrows(delta: float) -> void:
 		for u in _units[enemy_team]:
 			if is_instance_valid(u) and u.alive \
 					and u.global_position.distance_squared_to(a.pos) < ARROW_HIT * ARROW_HIT:
-				u.take_damage(a.dmg, a.pos - a.vel.normalized() * 20.0, 18.0)
+				u.take_damage(a.dmg, a.pos - a.vel.normalized() * 20.0, 18.0, false, a.shooter)
 				hit = true
 				break
 		if not hit and enemy_team == TEAM_PLAYER and _player.alive \
@@ -650,8 +689,13 @@ func _player_disengaged(delta: float) -> bool:
 
 
 func _alive_units(team_id: int) -> Array:
-	return _units[team_id].filter(func(u) -> bool:
-		return is_instance_valid(u) and u.alive)
+	var f: int = Engine.get_physics_frames()
+	if f != _alive_frame:
+		_alive_frame = f
+		for t in _units:
+			_alive_cache[t] = _units[t].filter(func(u) -> bool:
+				return is_instance_valid(u) and u.alive)
+	return _alive_cache.get(team_id, [])
 
 
 ## 接战线尘土：战场的呼吸。随机挑正在互砍的对子在中间点扬土。

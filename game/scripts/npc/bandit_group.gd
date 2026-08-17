@@ -53,3 +53,10 @@ func _on_body_entered(body: Node2D) -> void:
 
 func _emit_challenged() -> void:
 	challenged.emit()
+
+
+## 重新武装（P0：战败/撤退不是结局，遭遇不得一次性死掉）。
+## 玩家仍在警戒圈内时不立即复位，免得战败瞬间原地重开。
+func rearm() -> void:
+	await get_tree().create_timer(1.0).timeout
+	_triggered = false

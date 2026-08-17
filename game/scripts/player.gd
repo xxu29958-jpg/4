@@ -67,6 +67,7 @@ func _physics_process(delta: float) -> void:
 	if not dir.is_zero_approx():
 		_facing = dir.normalized()
 	velocity = dir * speed
+	_anim.set_stride(velocity.length())
 	move_and_slide()
 	_update_animation(dir)
 	_combat_tick(delta)
@@ -91,7 +92,7 @@ func _update_animation(dir: Vector2) -> void:
 
 # ---------------------------------------------------------------- 战斗（§7.3）
 
-const MAX_HP := 140
+const MAX_HP := 140  # 基础血量；每级 +12（max_hp 变量为准）
 const ATTACK_RANGE := 62.0
 const ATTACK_COOLDOWN := 0.7
 const ATTACK_DAMAGE := 12
@@ -102,6 +103,14 @@ const SWEEP_KNOCK := 320.0
 const SWEEP_COOLDOWN := 8.0
 ## 长柄旧刀：横扫范围肉眼明显扩大。
 const SWEEP_RANGE_OLD_BLADE := 150.0
+
+## 成长：战功升级（+12 血 +2 攻），钱用于招募乡勇。
+var level := 1
+var xp := 0
+var money := 30
+var bonus_melee := 0  # 教头处招募的额外枪兵（入编制，上限 8）
+var max_hp := MAX_HP
+var attack_damage := ATTACK_DAMAGE
 
 var team := Combatant.TEAM_PLAYER
 var hp := MAX_HP
@@ -116,6 +125,8 @@ var battle: BattleManager
 var _attack_cd := 0.0
 var _facing := Vector2.RIGHT
 var _attack_anim_left := 0.0
+var _action_gen := 0        # 战斗动作代际：横扫覆盖普攻时作废旧回调（评审）
+var _attack_facing := Vector2.RIGHT  # 出手瞬间朝向快照（弧光与伤害同读）
 
 
 func _combat_tick(delta: float) -> void:
@@ -129,14 +140,18 @@ func _combat_tick(delta: float) -> void:
 		var target := _nearest_bandit(ATTACK_RANGE)
 		if target != null:
 			_attack_cd = ATTACK_COOLDOWN
+			_action_gen += 1
+			var gen := _action_gen
 			_play_attack_anim(target.global_position - global_position)
 			Sfx.play(Sfx.SWING)
 			var dmg_from := global_position
 			_anim.attack_peak.connect(func() -> void:
+				if gen != _action_gen:
+					return  # 已被横扫覆盖：旧普攻回调作废
 				if alive and is_instance_valid(target) and target.alive \
 						and global_position.distance_to(target.global_position) \
 								<= ATTACK_RANGE + 14.0:
-					target.take_damage(ATTACK_DAMAGE, dmg_from, 60.0)
+					target.take_damage(attack_damage, dmg_from, 60.0, false, self)
 			, CONNECT_ONE_SHOT)
 
 
@@ -145,20 +160,25 @@ func use_sweep() -> void:
 	if not in_battle or not alive or skill_cd_left > 0.0:
 		return
 	skill_cd_left = SWEEP_COOLDOWN
+	_action_gen += 1
+	var gen := _action_gen
+	_attack_facing = _facing  # 出手瞬间冻结朝向：弧光与伤害同读一个快照（评审）
 	Sfx.play(Sfx.SWEEP)
 	_play_attack_anim(_facing)
 	var hit_any := false
 	var from := global_position
 	_anim.attack_peak.connect(func() -> void:
+		if gen != _action_gen:
+			return
 		for node in get_tree().get_nodes_in_group("combatants"):
 			if node == self or node.team == team or not node.alive:
 				continue
 			var offset: Vector2 = node.global_position - from
 			if offset.length() > sweep_range:
 				continue
-			if _facing.angle_to(offset) > SWEEP_HALF_ARC:
-				continue
-			node.take_damage(SWEEP_DAMAGE, from, SWEEP_KNOCK, true)
+			if absf(_attack_facing.angle_to(offset)) > SWEEP_HALF_ARC:
+				continue  # angle_to 带符号：不取绝对值负半圆会漏判
+			node.take_damage(SWEEP_DAMAGE, from, SWEEP_KNOCK, true, self)
 			hit_any = true
 		if hit_any:
 			if battle != null:
@@ -189,7 +209,8 @@ func use_hold() -> void:
 
 
 ## 受击：红闪 + hurt 帧 + 星爆 + 飘字 + 小屏震。
-func take_damage(amount: int, _from_pos: Vector2, _knock: float, is_skill := false) -> void:
+func take_damage(amount: int, _from_pos: Vector2, _knock: float, is_skill := false,
+		_attacker: Node2D = null) -> void:
 	if not alive:
 		return
 	hp -= maxi(1, amount - 3)  # 主将底子：固定减伤 3
@@ -215,9 +236,23 @@ func _shake(strength: float) -> void:
 		main.shake(strength)
 
 
+## 战功入账：自动升级（每级 30×level 经验）。
+func add_xp(n: int) -> bool:
+	xp += n
+	var need := level * 30
+	if xp >= need:
+		xp -= need
+		level += 1
+		max_hp += 12
+		attack_damage += 2
+		hp = max_hp  # 升级回满
+		return true
+	return false
+
+
 ## 战后复位（由 Main 在 battle_ended 时调用）。
 func recover() -> void:
-	hp = MAX_HP
+	hp = max_hp
 	alive = true
 	in_battle = false
 	battle = null
@@ -253,7 +288,7 @@ func _play_attack_anim(dir: Vector2) -> void:
 func _flash_arc() -> void:
 	var arc := Polygon2D.new()
 	arc.polygon = _arc_points()
-	arc.rotation = _facing.angle()
+	arc.rotation = _attack_facing.angle()
 	arc.color = Color(0.85, 0.72, 0.35, 0.45)
 	add_child(arc)
 	var tw := arc.create_tween()

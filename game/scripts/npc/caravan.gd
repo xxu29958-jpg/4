@@ -17,7 +17,7 @@ var _blocker: Node2D
 var _held := false
 
 var _cart: Sprite2D
-var _merchant: Puppet
+var _merchant: CharAnim
 var _alarm: Sprite2D
 
 
@@ -34,10 +34,21 @@ func set_blocker(node: Node2D) -> void:
 func _ready() -> void:
 	_cart = Sprite2D.new()
 	_cart.texture = CART_TEX
+	_cart.scale = Vector2(1.5, 1.5)  # 货车加大到与角色同尺度
 	add_child(_cart)
-	_merchant = NpcVisual.make_puppet(NpcVisual.MERCHANT)
+	# 行商用帧动画：商队走时他真的在走（moving 驱动 walk 循环）。
+	_merchant = CharAnim.new()
+	_merchant.frames_dir = "res://assets/chars/merchant"
+	_merchant.display_height = 64.0
 	_merchant.position = Vector2(0, 30)
 	add_child(_merchant)
+	var shadow := Sprite2D.new()
+	shadow.texture = load("res://assets/npc/shadow.png")
+	shadow.modulate.a = 0.38
+	shadow.scale = Vector2(0.55, 0.4)
+	shadow.position = Vector2(0, 31)
+	shadow.z_index = -1
+	add_child(shadow)
 	_alarm = Sprite2D.new()
 	_alarm.texture = ProximityBubble.ALERT
 	_alarm.position = Vector2(10, -40)

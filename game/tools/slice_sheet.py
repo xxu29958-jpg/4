@@ -65,6 +65,11 @@ def main():
         im = Image.fromarray(canvas)
         scale = th / max_h
         im = im.resize((max(1, round(max_foot_w * scale)), th), Image.LANCZOS)
+        # 成品化：提饱和/对比/锐度——角色从低饱和地图里跳出来（美术评审 #14）。
+        from PIL import ImageEnhance
+        im = ImageEnhance.Color(im).enhance(1.18)
+        im = ImageEnhance.Contrast(im).enhance(1.08)
+        im = ImageEnhance.Sharpness(im).enhance(1.5)
         im.save(outdir / f"{prefix}_{name}.png")
         frames[name] = {"file": f"{prefix}_{name}.png", "w": im.width, "h": im.height}
         print(f"{name}: {im.width}x{im.height}")

@@ -105,6 +105,9 @@ func _bot_play() -> void:
 		elif to.length() < 70.0:
 			# 没技能时绝不站桩挨刀。
 			_player.global_position -= to.normalized() * 4.0
+		elif to.length() > 200.0:
+			# 够不着就往战场走（站桩会被判脱战）。
+			_player.global_position += to.normalized() * 3.0
 		elif (anchor - _player.global_position).length() > 130.0:
 			# 闲暇时贴着本方阵线，不掉单。
 			_player.global_position += (anchor - _player.global_position).normalized() * 3.0
@@ -166,6 +169,17 @@ func _report() -> void:
 			" median_s=", median, " min=", durations.front() if not durations.is_empty() else -1,
 			" max=", durations.back() if not durations.is_empty() else -1)
 	print("REPORT all=", _results)
+	# 资格门：中位时长 30~80s、胜率 ≥40%、无超时才叫通过（评审）。
+	var timeouts := 0
+	for r in _results:
+		if r.timeout:
+			timeouts += 1
+	var win_rate := float(wins) / maxf(1.0, float(_results.size()))
+	var passed: bool = median >= 30.0 and median <= 80.0 \
+			and win_rate >= 0.4 and timeouts == 0
+	print("REPORT verdict=", "PASS" if passed else "FAIL",
+			" win_rate=", snappedf(win_rate, 0.01))
+	quit(0 if passed else 1)
 
 
 func _nearest_bandit() -> Node2D:
