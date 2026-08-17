@@ -1,0 +1,71 @@
+{
+  "tile": 64,
+  "width": 60,
+  "height": 40,
+  "player_spawn": [
+    672,
+    1568
+  ],
+  "tavern_door": [
+    736,
+    1504
+  ],
+  "rumor_drinker": [
+    800,
+    1568
+  ],
+  "city_gate": [
+    992,
+    1568
+  ],
+  "villager_crossroad": [
+    1888,
+    1440
+  ],
+  "bandit_block": [
+    2336,
+    1568
+  ],
+  "caravan_waypoints": [
+    [
+      1312,
+      1568
+    ],
+    [
+      2592,
+      1568
+    ],
+    [
+      2656,
+      1632
+    ],
+    [
+      2720,
+      1696
+    ],
+    [
+      3232,
+      1696
+    ]
+  ],
+  "treasure_ruins": [
+    544,
+    416
+  ],
+  "zhai_gate": [
+    2016,
+    672
+  ],
+  "zhai_chief": [
+    2016,
+    416
+  ],
+  "village_elder": [
+    1632,
+    1952
+  ],
+  "river_view": [
+    3040,
+    2016
+  ]
+}
